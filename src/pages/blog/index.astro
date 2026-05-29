@@ -1,0 +1,97 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getCollection } from 'astro:content';
+
+const posts = (await getCollection('blog', ({ data }) => !data.draft))
+  .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
+---
+
+<BaseLayout title="Blog" description="Writing about software, process, and the things I've learned building things.">
+  <section class="page-hero">
+    <div class="container">
+      <span class="section-label reveal">Writing</span>
+      <h1 class="page-title reveal reveal-delay-1">Blog</h1>
+      <p class="page-sub reveal reveal-delay-2">
+        Notes on building software, things I've shipped, and lessons I keep learning the hard way.
+      </p>
+    </div>
+  </section>
+
+  <section class="blog-list">
+    <div class="container">
+      {posts.map((post, i) => (
+        <a href={`/blog/${post.slug}`} class={`blog-row reveal reveal-delay-${(i % 3) + 1}`}>
+          <div class="blog-row__meta">
+            <time datetime={post.data.date.toISOString()} class="blog-row__date">
+              {post.data.date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+            </time>
+            <span class="tag">{post.data.category}</span>
+          </div>
+          <h2 class="blog-row__title">{post.data.title}</h2>
+          <p class="blog-row__excerpt">{post.data.excerpt}</p>
+        </a>
+      ))}
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .page-hero { padding-block: var(--space-16) var(--space-12); }
+  .page-title {
+    font-size: clamp(2rem, 5vw, 4rem);
+    font-weight: var(--weight-bold);
+    letter-spacing: -0.03em;
+    margin-block: var(--space-3) var(--space-4);
+  }
+  .page-sub { max-width: 480px; color: var(--text-muted); line-height: var(--leading-loose); }
+
+  .blog-list { padding-block: 0 var(--space-24); }
+  .blog-list .container { display: flex; flex-direction: column; }
+
+  .blog-row {
+    display: block;
+    padding: var(--space-8) 0;
+    border-bottom: 1px solid var(--border);
+    transition: all var(--duration) var(--ease);
+    position: relative;
+  }
+  .blog-row::before {
+    content: '';
+    position: absolute;
+    left: calc(var(--space-4) * -1);
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--accent);
+    transform: scaleY(0);
+    transition: transform var(--duration) var(--ease);
+    border-radius: 1px;
+  }
+  .blog-row:hover::before { transform: scaleY(1); }
+
+  .blog-row__meta {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+  }
+  .blog-row__date {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+  }
+
+  .blog-row__title {
+    font-size: var(--text-2xl);
+    margin-bottom: var(--space-2);
+    transition: color var(--duration) var(--ease);
+  }
+  .blog-row:hover .blog-row__title { color: var(--accent); }
+
+  .blog-row__excerpt {
+    color: var(--text-muted);
+    font-size: var(--text-base);
+    line-height: var(--leading-loose);
+    max-width: 640px;
+  }
+</style>

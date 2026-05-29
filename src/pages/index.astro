@@ -1,0 +1,84 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getCollection } from 'astro:content';
+
+const projects = await getCollection('projects', ({ data }) => !data.hidden);
+projects.sort((a, b) => b.data.year - a.data.year);
+---
+
+<BaseLayout title="Projects" description="Case studies of things I've built — problem, approach, outcome, and what I'd change.">
+  <section class="page-hero">
+    <div class="container">
+      <span class="section-label reveal">Projects</span>
+      <h1 class="page-title reveal reveal-delay-1">Things I've shipped</h1>
+      <p class="page-sub reveal reveal-delay-2">
+        Each case study follows the same structure: what the problem was, how I approached it, what shipped, and what I'd do differently. The last part is the most honest.
+      </p>
+    </div>
+  </section>
+
+  <section class="projects-list">
+    <div class="container">
+      {projects.map((project, i) => (
+        <article class={`project-row card reveal reveal-delay-${(i % 3) + 1}`}>
+          <div class="project-row__meta">
+            <span class="project-row__year tag">{project.data.year}</span>
+            <div class="project-row__tags">
+              {project.data.tags.map((tag: string) => <span class="tag">{tag}</span>)}
+            </div>
+          </div>
+          <div class="project-row__body">
+            <h2 class="project-row__title">
+              <a href={`/projects/${project.slug}`}>{project.data.title}</a>
+            </h2>
+            <p class="project-row__summary">{project.data.summary}</p>
+            <div class="project-row__links">
+              <a href={`/projects/${project.slug}`} class="btn btn-ghost btn-sm">Case study →</a>
+              {project.data.github && (
+                <a href={project.data.github} target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm">GitHub ↗</a>
+              )}
+              {project.data.link && (
+                <a href={project.data.link} target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm">Live ↗</a>
+              )}
+            </div>
+          </div>
+        </article>
+      ))}
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .page-hero { padding-block: var(--space-16) var(--space-12); }
+  .page-title {
+    font-size: clamp(2rem, 5vw, 4rem);
+    font-weight: var(--weight-bold);
+    letter-spacing: -0.03em;
+    margin-block: var(--space-3) var(--space-4);
+  }
+  .page-sub { max-width: 540px; color: var(--text-muted); line-height: var(--leading-loose); }
+
+  .projects-list { padding-block: 0 var(--space-24); }
+  .projects-list .container { display: flex; flex-direction: column; gap: var(--space-4); }
+
+  .project-row {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: var(--space-8);
+    align-items: start;
+  }
+  @media (max-width: 768px) {
+    .project-row { grid-template-columns: 1fr; gap: var(--space-4); }
+  }
+
+  .project-row__meta { display: flex; flex-direction: column; gap: var(--space-2); padding-top: var(--space-1); }
+  .project-row__tags { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+
+  .project-row__title { font-size: var(--text-2xl); margin-bottom: var(--space-3); }
+  .project-row__title a { transition: color var(--duration) var(--ease); }
+  .project-row__title a:hover { color: var(--accent); }
+
+  .project-row__summary { color: var(--text-muted); line-height: var(--leading-loose); margin-bottom: var(--space-4); }
+
+  .project-row__links { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+  .btn-sm { padding: var(--space-2) var(--space-4); font-size:

@@ -1,0 +1,90 @@
+---
+const year = new Date().getFullYear();
+const links = [
+  { href: 'https://github.com/ashishkoka', label: 'GitHub', external: true },
+  { href: 'https://linkedin.com/in/ashishkoka', label: 'LinkedIn', external: true },
+  { href: '/rss.xml', label: 'RSS', external: false },
+];
+---
+
+<footer class="footer">
+  <div class="container footer__inner">
+    <div class="footer__left">
+      <a href="/" class="footer__logo" aria-label="Home">AK</a>
+      <p class="footer__copy">
+        &copy; {year} Ashish Koka. Built with Astro, deployed on Cloudflare.
+      </p>
+    </div>
+
+    <nav class="footer__links" aria-label="Footer navigation">
+      {links.map(({ href, label, external }) => (
+        <a
+          href={href}
+          class="footer__link"
+          {...external ? { target: '_blank', rel: 'noopener noreferrer' } : {}}
+        >
+          {label}
+          {external && (
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" aria-hidden="true">
+              <path d="M5.5 1H9v3.5M9 1L4 6M1 3h3v6H1z" stroke="currentColor" stroke-width="1.2" fill="none"/>
+            </svg>
+          )}
+        </a>
+      ))}
+    </nav>
+  </div>
+</footer>
+
+<style>
+  .footer {
+    border-top: 1px solid var(--border);
+    padding-block: var(--space-8);
+    margin-top: var(--space-24);
+  }
+
+  .footer__inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-6);
+    flex-wrap: wrap;
+  }
+
+  .footer__left {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+  }
+
+  .footer__logo {
+    font-family: var(--font-mono);
+    font-weight: var(--weight-bold);
+    font-size: var(--text-lg);
+    color: var(--accent);
+  }
+
+  .footer__copy {
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+  }
+
+  .footer__links {
+    display: flex;
+    gap: var(--space-6);
+  }
+
+  .footer__link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    transition: color var(--duration) var(--ease);
+  }
+  .footer__link:hover { color: var(--accent); }
+
+  @media (max-width: 640px) {
+    .footer__inner { flex-direction: column; align-items: flex-start; }
+  }
+</style>

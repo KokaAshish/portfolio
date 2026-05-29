@@ -1,0 +1,114 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout
+  title="About"
+  description="Ashish Koka — ME Computer Science student at University of Cincinnati, software engineer, and IEEE-published researcher."
+>
+  <section class="about-hero">
+    <div class="container">
+      <div class="about-hero__label reveal">
+        <span class="section-label">About</span>
+      </div>
+      <h1 class="about-hero__title reveal reveal-delay-1">
+        Building software<br/>
+        <span class="gradient-text">that holds up.</span>
+      </h1>
+    </div>
+  </section>
+
+  <section class="about-body">
+    <div class="container about-body__grid">
+
+      <div class="about-body__content prose reveal">
+        <p>
+          I'm Ashish Koka — a software engineer and graduate student in Computer Science at the
+          University of Cincinnati. I completed my B.Tech in Computer Science Engineering at
+          SRM University AP (CGPA 3.2/4.0), and I'm now pursuing my Master of Engineering
+          while building real projects in data engineering, systems programming, and ML.
+        </p>
+        <p>
+          My work spans the stack: from C-level virtual memory simulators and machine learning
+          algorithms implemented from scratch in NumPy, to full-stack analytics dashboards
+          deployed on Azure SQL. I've also published research at IEEE on applying deep learning
+          to medical prediction problems.
+        </p>
+        <p>
+          I care about understanding things at a level below the abstraction. That's why I
+          implement SMO before I use sklearn, and why I build the VM manager before I study the
+          OS page-replacement chapter. Reaching for a library is fast; knowing what it's doing
+          is better.
+        </p>
+
+        <h2>Experience</h2>
+        <p>
+          I interned as a <strong>Software Engineer at IntegrAuth</strong>, where I worked with
+          authentication, authorization, and identity access management tools. Before that, I
+          completed a <strong>Salesforce Developer internship</strong>, building familiarity with
+          the platform's development model through guided courses and hands-on exercises.
+          Outside engineering, I've worked as a <strong>Front Desk Assistant</strong> at the
+          University Sports Association, which taught me how much of good work is about
+          communication and follow-through.
+        </p>
+
+        <h2>Research</h2>
+        <p>
+          I published a paper at IEEE titled <em>"Deep Learning Approach on Prediction of
+          Tinnitus"</em> — applying deep learning methods to a medical prediction problem.
+          That work shaped how I think about data quality, model evaluation, and the gap between
+          academic benchmarks and real-world deployment constraints.
+        </p>
+
+        <h2>Outside of code</h2>
+        <p>
+          I was a member of the SRMAP movie club management team and helped supervise short film
+          competitions. I've coordinated stalls at university fests. I find that the communication
+          skills from that kind of work transfer directly to engineering — presenting ideas clearly,
+          running a retrospective, knowing when to push and when to wait.
+        </p>
+      </div>
+
+      <aside class="about-body__sidebar">
+
+        <div class="about-card card reveal reveal-delay-2">
+          <h3 class="about-card__heading">Education</h3>
+          <ul class="about-card__list">
+            <li class="about-card__item edu-item">
+              <span class="edu-item__degree">ME Computer Science</span>
+              <span class="edu-item__school">University of Cincinnati</span>
+              <span class="edu-item__year tag">In Progress</span>
+            </li>
+            <li class="about-card__item edu-item">
+              <span class="edu-item__degree">BTech CSE · 3.2 GPA</span>
+              <span class="edu-item__school">SRM University AP</span>
+              <span class="edu-item__year tag">2020 – 2024</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="about-card card reveal reveal-delay-3">
+          <h3 class="about-card__heading">Stack</h3>
+          <ul class="about-card__list">
+            {[
+              'Python · NumPy · Scikit-learn',
+              'JavaScript · HTML · CSS',
+              'Flask · Streamlit',
+              'Azure SQL · SQLAlchemy',
+              'R · Data Analysis',
+              'C · Systems Programming',
+              'Git · GitHub Actions',
+            ].map(item => (
+              <li class="about-card__item">
+                <span class="about-card__dot" aria-hidden="true">▸</span>
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div class="about-card card reveal reveal-delay-4">
+          <h3 class="about-card__heading">Certifications</h3>
+          <ul class="about-card__list">
+            {[
+             

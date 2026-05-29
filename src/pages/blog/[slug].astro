@@ -1,0 +1,88 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getCollection } from 'astro:content';
+
+export async function getStaticPaths() {
+  const posts = await getCollection('blog', ({ data }) => !data.draft);
+  return posts.map((post) => ({
+    params: { slug: post.slug },
+    props:  { post },
+  }));
+}
+
+const { post } = Astro.props;
+const { Content } = await post.render();
+---
+
+<BaseLayout
+  title={post.data.title}
+  description={post.data.excerpt}
+  type="article"
+>
+  <article class="post">
+    <header class="post__header">
+      <div class="container">
+        <nav class="post__breadcrumb reveal" aria-label="Breadcrumb">
+          <a href="/blog">← Blog</a>
+        </nav>
+
+        <div class="post__meta reveal reveal-delay-1">
+          <time datetime={post.data.date.toISOString()}>
+            {post.data.date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+          </time>
+          <span class="tag">{post.data.category}</span>
+        </div>
+
+        <h1 class="post__title reveal reveal-delay-2">{post.data.title}</h1>
+        <p class="post__excerpt reveal reveal-delay-3">{post.data.excerpt}</p>
+      </div>
+    </header>
+
+    <div class="post__body">
+      <div class="container">
+        <div class="prose reveal">
+          <Content />
+        </div>
+      </div>
+    </div>
+  </article>
+</BaseLayout>
+
+<style>
+  .post__header {
+    padding-top: var(--space-12);
+    padding-bottom: var(--space-12);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .post__breadcrumb { margin-bottom: var(--space-6); font-size: var(--text-sm); color: var(--text-muted); }
+  .post__breadcrumb a { transition: color var(--duration) var(--ease); }
+  .post__breadcrumb a:hover { color: var(--accent); }
+
+  .post__meta {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+  }
+
+  .post__title {
+    font-size: clamp(1.75rem, 4vw, 3.5rem);
+    font-weight: var(--weight-bold);
+    letter-spacing: -0.03em;
+    margin-bottom: var(--space-4);
+    max-width: var(--content-width);
+  }
+
+  .post__excerpt {
+    font-size: var(--text-xl);
+    color: var(--text-muted);
+    max-width: var(--content-width);
+    line-height: var(--leading-loose);
+  }
+
+  .post__body { padding-block: var(--space-12) var(--space-24); }
+</style>

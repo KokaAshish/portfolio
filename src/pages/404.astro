@@ -1,0 +1,109 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="404 — Page not found" description="This page doesn't exist.">
+  <section class="not-found">
+    <div class="container">
+      <div class="not-found__content">
+        <div class="not-found__code" aria-hidden="true">
+          <span class="gradient-text">404</span>
+        </div>
+
+        <h1 class="not-found__title">Wrong turn.</h1>
+        <p class="not-found__msg">
+          This page doesn't exist — or it used to and got moved. Either way, it's not here.
+        </p>
+
+        <div class="not-found__terminal" aria-label="Helpful options">
+          <div class="not-found__terminal-header" aria-hidden="true">
+            <span class="dot red"></span>
+            <span class="dot yellow"></span>
+            <span class="dot green"></span>
+          </div>
+          <div class="not-found__terminal-body">
+            <p><span class="prompt">❯</span> where do you want to go?</p>
+            <p><span class="prompt">→</span> <a href="/">Home</a></p>
+            <p><span class="prompt">→</span> <a href="/projects">Projects</a></p>
+            <p><span class="prompt">→</span> <a href="/blog">Blog</a></p>
+            <p><span class="prompt">→</span> <a href="/contact">Contact</a></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .not-found {
+    min-height: calc(100svh - var(--nav-height));
+    display: flex;
+    align-items: center;
+  }
+
+  .not-found__content { max-width: 480px; }
+
+  .not-found__code {
+    font-family: var(--font-mono);
+    font-size: clamp(5rem, 15vw, 10rem);
+    font-weight: var(--weight-bold);
+    line-height: 1;
+    letter-spacing: -0.06em;
+    margin-bottom: var(--space-4);
+    display: block;
+  }
+
+  .not-found__title {
+    font-size: var(--text-3xl);
+    font-weight: var(--weight-bold);
+    margin-bottom: var(--space-4);
+  }
+
+  .not-found__msg {
+    color: var(--text-muted);
+    line-height: var(--leading-loose);
+    margin-bottom: var(--space-8);
+  }
+
+  .not-found__terminal {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    box-shadow: var(--shadow-card), 0 0 32px var(--accent-glow);
+  }
+
+  .not-found__terminal-header {
+    display: flex;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    background: var(--bg-elevated);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+  .red    { background: #ff5f57; }
+  .yellow { background: #febc2e; }
+  .green  { background: #28c840; }
+
+  .not-found__terminal-body {
+    padding: var(--space-4) var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    line-height: 1.8;
+  }
+
+  .prompt { color: var(--accent); margin-right: var(--space-2); }
+  .not-found__terminal-body a {
+    color: var(--cyan);
+    transition: color var(--duration) var(--ease);
+  }
+  .not-found__terminal-body a:hover { color: var(--text); }
+</style>

@@ -1,0 +1,141 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getCollection, getEntry } from 'astro:content';
+
+export async function getStaticPaths() {
+  const projects = await getCollection('projects', ({ data }) => !data.hidden);
+  return projects.map((project) => ({
+    params: { slug: project.slug },
+    props:  { project },
+  }));
+}
+
+const { project } = Astro.props;
+const { Content } = await project.render();
+---
+
+<BaseLayout
+  title={project.data.title}
+  description={project.data.summary}
+  type="article"
+>
+  <article class="case-study">
+    <header class="case-study__header">
+      <div class="container">
+        <nav class="case-study__breadcrumb reveal" aria-label="Breadcrumb">
+          <a href="/projects">← Projects</a>
+        </nav>
+
+        <div class="case-study__meta reveal reveal-delay-1">
+          <span class="tag">{project.data.year}</span>
+          {project.data.tags.map((tag: string) => <span class="tag">{tag}</span>)}
+        </div>
+
+        <h1 class="case-study__title reveal reveal-delay-2">{project.data.title}</h1>
+        <p class="case-study__summary reveal reveal-delay-3">{project.data.summary}</p>
+
+        <div class="case-study__links reveal reveal-delay-4">
+          {project.data.github && (
+            <a href={project.data.github} target="_blank" rel="noopener noreferrer" class="btn btn-ghost">GitHub ↗</a>
+          )}
+          {project.data.link && (
+            <a href={project.data.link} target="_blank" rel="noopener noreferrer" class="btn btn-primary">Live site ↗</a>
+          )}
+        </div>
+      </div>
+    </header>
+
+    <!-- TL;DR cards -->
+    <div class="case-study__tldr">
+      <div class="container">
+        <div class="tldr-grid reveal">
+          <div class="tldr-card card">
+            <h2 class="tldr-card__label">Problem</h2>
+            <p>{project.data.problem}</p>
+          </div>
+          <div class="tldr-card card">
+            <h2 class="tldr-card__label">Outcome</h2>
+            <p>{project.data.outcome}</p>
+          </div>
+          <div class="tldr-card card">
+            <h2 class="tldr-card__label">Lessons</h2>
+            <p>{project.data.lessons}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Full write-up -->
+    <div class="case-study__body">
+      <div class="container">
+        <div class="prose reveal">
+          <Content />
+        </div>
+      </div>
+    </div>
+  </article>
+</BaseLayout>
+
+<style>
+  .case-study__header {
+    padding-top: var(--space-12);
+    padding-bottom: var(--space-12);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .case-study__breadcrumb {
+    margin-bottom: var(--space-6);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+  }
+  .case-study__breadcrumb a {
+    transition: color var(--duration) var(--ease);
+  }
+  .case-study__breadcrumb a:hover { color: var(--accent); }
+
+  .case-study__meta {
+    display: flex;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+    margin-bottom: var(--space-4);
+  }
+
+  .case-study__title {
+    font-size: clamp(1.75rem, 4vw, 3.5rem);
+    font-weight: var(--weight-bold);
+    letter-spacing: -0.03em;
+    margin-bottom: var(--space-4);
+    max-width: 800px;
+  }
+
+  .case-study__summary {
+    font-size: var(--text-xl);
+    color: var(--text-muted);
+    max-width: 640px;
+    line-height: var(--leading-loose);
+    margin-bottom: var(--space-6);
+  }
+
+  .case-study__links { display: flex; gap: var(--space-3); flex-wrap: wrap; }
+
+  .case-study__tldr { padding-block: var(--space-12); }
+
+  .tldr-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-4);
+  }
+  @media (max-width: 768px) {
+    .tldr-grid { grid-template-columns: 1fr; }
+  }
+
+  .tldr-card p { color: var(--text-muted); font-size: var(--text-sm); line-height: var(--leading-loose); margin-top: var(--space-2); }
+  .tldr-card__label {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .case-study__body { padding-block: 0 
