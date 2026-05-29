@@ -20,57 +20,19 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
   <section class="about-body">
     <div class="container about-body__grid">
-
       <div class="about-body__content prose reveal">
-        <p>
-          I'm Ashish Koka — a software engineer and graduate student in Computer Science at the
-          University of Cincinnati. I completed my B.Tech in Computer Science Engineering at
-          SRM University AP (CGPA 3.2/4.0), and I'm now pursuing my Master of Engineering
-          while building real projects in data engineering, systems programming, and ML.
-        </p>
-        <p>
-          My work spans the stack: from C-level virtual memory simulators and machine learning
-          algorithms implemented from scratch in NumPy, to full-stack analytics dashboards
-          deployed on Azure SQL. I've also published research at IEEE on applying deep learning
-          to medical prediction problems.
-        </p>
-        <p>
-          I care about understanding things at a level below the abstraction. That's why I
-          implement SMO before I use sklearn, and why I build the VM manager before I study the
-          OS page-replacement chapter. Reaching for a library is fast; knowing what it's doing
-          is better.
-        </p>
-
+        <p>I am Ashish Koka — a software engineer and graduate student in Computer Science at the University of Cincinnati. I completed my B.Tech in Computer Science Engineering at SRM University AP (CGPA 3.2/4.0), and I am now pursuing my Master of Engineering while building real projects in data engineering, systems programming, and ML.</p>
+        <p>My work spans the stack: from C-level virtual memory simulators and machine learning algorithms implemented from scratch in NumPy, to full-stack analytics dashboards deployed on Azure SQL. I have also published research at IEEE on applying deep learning to medical prediction problems.</p>
+        <p>I care about understanding things at a level below the abstraction. That is why I implement SMO before I use sklearn, and why I build the VM manager before I study the OS page-replacement chapter.</p>
         <h2>Experience</h2>
-        <p>
-          I interned as a <strong>Software Engineer at IntegrAuth</strong>, where I worked with
-          authentication, authorization, and identity access management tools. Before that, I
-          completed a <strong>Salesforce Developer internship</strong>, building familiarity with
-          the platform's development model through guided courses and hands-on exercises.
-          Outside engineering, I've worked as a <strong>Front Desk Assistant</strong> at the
-          University Sports Association, which taught me how much of good work is about
-          communication and follow-through.
-        </p>
-
+        <p>I interned as a Software Engineer at IntegrAuth, working with authentication, authorization, and identity access management tools. Before that, I completed a Salesforce Developer internship. Outside engineering, I worked as a Front Desk Assistant at the University Sports Association.</p>
         <h2>Research</h2>
-        <p>
-          I published a paper at IEEE titled <em>"Deep Learning Approach on Prediction of
-          Tinnitus"</em> — applying deep learning methods to a medical prediction problem.
-          That work shaped how I think about data quality, model evaluation, and the gap between
-          academic benchmarks and real-world deployment constraints.
-        </p>
-
+        <p>I published a paper at IEEE titled "Deep Learning Approach on Prediction of Tinnitus" — applying deep learning to EEG data to predict treatment outcomes for tinnitus patients.</p>
         <h2>Outside of code</h2>
-        <p>
-          I was a member of the SRMAP movie club management team and helped supervise short film
-          competitions. I've coordinated stalls at university fests. I find that the communication
-          skills from that kind of work transfer directly to engineering — presenting ideas clearly,
-          running a retrospective, knowing when to push and when to wait.
-        </p>
+        <p>I was a member of the SRMAP movie club management team and helped supervise short film competitions. I have coordinated stalls at university fests and events.</p>
       </div>
 
       <aside class="about-body__sidebar">
-
         <div class="about-card card reveal reveal-delay-2">
           <h3 class="about-card__heading">Education</h3>
           <ul class="about-card__list">
@@ -90,25 +52,44 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         <div class="about-card card reveal reveal-delay-3">
           <h3 class="about-card__heading">Stack</h3>
           <ul class="about-card__list">
-            {[
-              'Python · NumPy · Scikit-learn',
-              'JavaScript · HTML · CSS',
-              'Flask · Streamlit',
-              'Azure SQL · SQLAlchemy',
-              'R · Data Analysis',
-              'C · Systems Programming',
-              'Git · GitHub Actions',
-            ].map(item => (
-              <li class="about-card__item">
-                <span class="about-card__dot" aria-hidden="true">▸</span>
-                {item}
-              </li>
-            ))}
+            <li class="about-card__item"><span class="about-card__dot">▸</span>Python · NumPy · Scikit-learn</li>
+            <li class="about-card__item"><span class="about-card__dot">▸</span>JavaScript · HTML · CSS</li>
+            <li class="about-card__item"><span class="about-card__dot">▸</span>Flask · Streamlit</li>
+            <li class="about-card__item"><span class="about-card__dot">▸</span>Azure SQL · SQLAlchemy</li>
+            <li class="about-card__item"><span class="about-card__dot">▸</span>C · Systems Programming</li>
+            <li class="about-card__item"><span class="about-card__dot">▸</span>Git · GitHub Actions</li>
           </ul>
         </div>
 
         <div class="about-card card reveal reveal-delay-4">
           <h3 class="about-card__heading">Certifications</h3>
           <ul class="about-card__list">
-            {[
-             
+            <li class="about-card__item"><span class="about-card__dot">▸</span>HackerRank — Problem Solving (Intermediate)</li>
+            <li class="about-card__item"><span class="about-card__dot">▸</span>HackerRank — SQL (Intermediate)</li>
+            <li class="about-card__item"><span class="about-card__dot">▸</span>NPTEL — Cognitive Psychology</li>
+            <li class="about-card__item"><span class="about-card__dot">▸</span>NPTEL — Environment and Development</li>
+          </ul>
+        </div>
+      </aside>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .about-hero { padding-top: var(--space-16); padding-bottom: var(--space-12); }
+  .about-hero__label { margin-bottom: var(--space-4); }
+  .about-hero__title { font-size: clamp(2.5rem, 6vw, 5rem); font-weight: var(--weight-bold); line-height: 1.05; letter-spacing: -0.03em; }
+  .about-body { padding-block: 0 var(--space-24); }
+  .about-body__grid { display: grid; grid-template-columns: 1fr 300px; gap: var(--space-16); align-items: start; }
+  @media (max-width: 900px) { .about-body__grid { grid-template-columns: 1fr; } }
+  .about-card { margin-bottom: var(--space-4); }
+  .about-card__heading { font-size: var(--text-sm); font-family: var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); margin-bottom: var(--space-4); }
+  .about-card__list { display: flex; flex-direction: column; gap: var(--space-3); }
+  .about-card__item { display: flex; align-items: baseline; gap: var(--space-2); font-size: var(--text-sm); color: var(--text-muted); }
+  .about-card__dot { color: var(--accent); font-size: 0.6em; }
+  .edu-item { flex-direction: column; gap: var(--space-1); padding-bottom: var(--space-3); border-bottom: 1px solid var(--border); }
+  .edu-item:last-child { border-bottom: none; padding-bottom: 0; }
+  .edu-item__degree { font-size: var(--text-sm); font-weight: var(--weight-semi); color: var(--text); }
+  .edu-item__school { font-size: var(--text-xs); color: var(--text-muted); }
+  .edu-item__year { align-self: flex-start; margin-top: var(--space-1); }
+</style>
