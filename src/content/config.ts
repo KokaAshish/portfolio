@@ -29,4 +29,4 @@ const blog = defineCollection({
   }),
 });
 
-expor
+export const collections = { projects, blog };
