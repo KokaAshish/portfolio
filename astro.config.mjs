@@ -6,7 +6,7 @@ export default defineConfig({
   adapter: cloudflare({
     platformProxy: { enabled: true },
   }),
-  site: 'https://ashishkoka.workers.dev',
+  site: 'https://kokashish.workers.dev',
   markdown: {
     shikiConfig: {
       theme: 'github-dark-dimmed',

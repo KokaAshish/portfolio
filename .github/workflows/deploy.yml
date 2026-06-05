@@ -1,16 +1,15 @@
 name: Deploy
 
 on:
-  push:
-    branches: [main]
+  # Manual trigger only — run from GitHub Actions → Deploy → Run workflow
+  workflow_dispatch:
 
 jobs:
   deploy:
-    name: Build & Deploy to Cloudflare
+    name: Build & Deploy to Cloudflare Workers
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
-    # Required for deployment attestation
     permissions:
       contents: read
       deployments: write

@@ -1,8 +1,17 @@
 name: CI
 
 on:
+  push:
+    branches: [main]
   pull_request:
     branches: [main]
+  schedule:
+    # Daily at 00:00 UTC — catches dependency drift before it affects deploys
+    - cron: '0 0 * * *'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   ci:
@@ -29,8 +38,8 @@ jobs:
       - name: Type-check
         run: npm run check
 
-      - name: Run tests
+      - name: Run unit tests
         run: npm test
 
-      - name: Build
+      - name: Build (smoke test)
         run: npm run build

@@ -96,7 +96,7 @@ export async function handleContact(
   }
 
   const { name, email, message } = body as ContactPayload;
-  const toEmail = env.TO_EMAIL ?? 'ashishkoka34@gmail.com';
+  const toEmail = env.TO_EMAIL ?? 'ashishkoka423@gmail.com';
 
   // Send via MailChannels
   try {
