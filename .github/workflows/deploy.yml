@@ -1,18 +1,19 @@
-name: Deploy
+name: Deploy to Cloudflare Workers
 
 on:
-  # Manual trigger only — run from GitHub Actions → Deploy → Run workflow
-  workflow_dispatch:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false   # never cancel a deploy in progress
 
 jobs:
-  deploy:
-    name: Build & Deploy to Cloudflare Workers
+  # ── Step 1: Run all checks first ─────────────────────────────────
+  ci:
+    name: Lint · Type-check · Test · Build
     runs-on: ubuntu-latest
     timeout-minutes: 10
-
-    permissions:
-      contents: read
-      deployments: write
 
     steps:
       - name: Checkout
@@ -27,14 +28,50 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests
+      - name: Lint
+        run: npm run lint
+
+      - name: Type-check
+        run: npm run check
+
+      - name: Run unit tests
         run: npm test
 
       - name: Build
         run: npm run build
 
-      - name: Deploy to Cloudflare Workers
+      # Keep the build output so the deploy job can reuse it
+      - name: Upload dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 1
+
+  # ── Step 2: Deploy only if CI passed ─────────────────────────────
+  deploy:
+    name: Deploy to Cloudflare Workers
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: ci                # waits for ci job to succeed
+
+    permissions:
+      contents: read
+      deployments: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download dist
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Deploy via Wrangler
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
