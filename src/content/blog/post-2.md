@@ -4,7 +4,7 @@ excerpt: "It's not about cost or hype. It's about what the constraints force you
 date: 2024-10-03
 category: "Infrastructure"
 tags: ["cloudflare", "workers", "infrastructure", "edge"]
-draft: false
+draft: true
 ---
 
 Every time I mention using Cloudflare Workers for something, someone asks if it's actually worth it or if I'm just chasing the new thing. Fair question. Here's my honest answer.

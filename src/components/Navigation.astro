@@ -12,7 +12,7 @@ const pathname = Astro.url.pathname;
 <nav class="nav" aria-label="Main navigation">
   <div class="container nav__inner">
     <a href="/" class="nav__logo" aria-label="Ashish Koka — home">
-      <span class="nav__logo-text">AK</span>
+      <span class="nav__logo-text">Ashish Koka</span>
       <span class="nav__logo-dot" aria-hidden="true"></span>
     </a>
 
@@ -173,11 +173,11 @@ const pathname = Astro.url.pathname;
     color: var(--accent);
   }
 
-  /* Show/hide icons based on theme */
-  [data-theme="dark"]  .icon-moon { display: none; }
-  [data-theme="dark"]  .icon-sun  { display: block; }
-  [data-theme="light"] .icon-sun  { display: none; }
-  [data-theme="light"] .icon-moon { display: block; }
+  /* Show the icon that matches the current theme */
+  [data-theme="light"] .icon-moon { display: none; }
+  [data-theme="light"] .icon-sun  { display: block; }
+  [data-theme="dark"]  .icon-sun  { display: none; }
+  [data-theme="dark"]  .icon-moon { display: block; }
 
   .nav__menu-btn {
     display: none;

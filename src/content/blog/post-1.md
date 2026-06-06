@@ -4,7 +4,7 @@ excerpt: "Three things I didn't expect to matter as much as they do: documentati
 date: 2024-11-15
 category: "Engineering"
 tags: ["process", "lessons", "software"]
-draft: false
+draft: true
 ---
 
 I've shipped maybe a dozen non-trivial projects in the last two years. Not at scale — no millions of users, no distributed systems war stories. Just real software, used by real people, that needed to work reliably without me babysitting it.
