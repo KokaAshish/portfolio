@@ -497,6 +497,13 @@ const projectData: ProjectData[] = projects.map((p) => ({
 
   /* ── Modal ─────────────────────────────────────────────────────── */
   .project-modal {
+    /* Force center on screen in all browsers */
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    margin: 0;
+
     border: 1px solid var(--border);
     border-radius: var(--radius-xl);
     background: var(--bg-surface);

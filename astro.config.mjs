@@ -7,6 +7,9 @@ export default defineConfig({
     platformProxy: { enabled: true },
   }),
   site: 'https://kokaashish.workers.dev',
+  devToolbar: {
+    enabled: false,
+  },
   markdown: {
     shikiConfig: {
       theme: 'github-dark-dimmed',
