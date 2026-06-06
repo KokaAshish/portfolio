@@ -7,7 +7,7 @@
     "build": "astro build",
     "preview": "astro preview",
     "check": "astro check",
-    "lint": "eslint src --ext .ts,.astro",
+    "lint": "eslint src",
     "test": "vitest run",
     "test:watch": "vitest",
     "deploy": "wrangler deploy"
