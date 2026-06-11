@@ -69,6 +69,10 @@ jobs:
           name: dist
           path: dist/
 
+      # Ensure _worker.js is excluded from static assets upload
+      - name: Create .assetsignore
+        run: echo "_worker.js" > dist/.assetsignore
+
       - name: Deploy via Wrangler
         uses: cloudflare/wrangler-action@v3
         with:

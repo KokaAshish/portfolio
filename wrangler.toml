@@ -1,18 +1,14 @@
 name = "kokaashish"
 compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
+main = "./dist/_worker.js"
 
 [assets]
 directory = "./dist"
+binding = "ASSETS"
 
 [observability]
 enabled = true
 
 [vars]
 ENVIRONMENT = "production"
-
-# Uncomment to use D1 for contact form submissions
-# [[d1_databases]]
-# binding = "DB"
-# database_name = "portfolio-db"
-# database_id = "YOUR_D1_DATABASE_ID"
