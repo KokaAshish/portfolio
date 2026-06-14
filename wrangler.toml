@@ -13,7 +13,7 @@ binding = "ASSETS"
 [[d1_databases]]
 binding = "DB"
 database_name = "portfolio-contacts"
-database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+database_id = "61e391b2-62bd-4f72-8f8a-dbb37540bb3e"
 
 [vars]
 ENVIRONMENT = "production"
