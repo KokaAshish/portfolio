@@ -1,4 +1,4 @@
-name = "ashishkoka"
+name = "portfolio"
 compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
 main = "./dist/_worker.js"
@@ -7,8 +7,18 @@ main = "./dist/_worker.js"
 directory = "./dist"
 binding = "ASSETS"
 
-[observability]
-enabled = true
+# D1 database — contact form submissions
+# To create: npx wrangler d1 create portfolio-contacts
+# Then replace the database_id below with the one printed by that command
+[[d1_databases]]
+binding = "DB"
+database_name = "portfolio-contacts"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
 
 [vars]
 ENVIRONMENT = "production"
+
+# Secrets (set via: npx wrangler secret put ADMIN_PASSWORD)
+# ADMIN_PASSWORD — password for /admin login
+# ADMIN_SECRET  — HMAC signing key for session tokens (random string, min 32 chars)
+# TO_EMAIL      — destination for contact form emails

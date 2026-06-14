@@ -46,10 +46,39 @@ The mobile experience at 320px is functional but not great. The hero title wraps
 
 ---
 
+## Extension 1 — Auth mechanism decision
+
+I chose **stateless HMAC-SHA256 signed cookies** over sessions or JWTs.
+
+**Why not a session table in D1?**
+Workers are stateless — in-memory session maps reset on every cold start. A D1 session table would work, but it adds a round-trip to D1 on every admin request. For a single-admin portfolio, the extra complexity isn't justified.
+
+**Why not a JWT library?**
+The Web Crypto API (`crypto.subtle`) is available natively in Workers. A JWT library would add a dependency to solve a problem I can solve in 40 lines. I implemented the same primitives: HMAC-SHA256 signing, base64 encoding, expiry in the payload.
+
+**Token format:**
+```
+base64(JSON({exp})).base64(HMAC-SHA256(ADMIN_SECRET, base64(JSON({exp}))))
+```
+
+**Security properties:**
+- `HttpOnly; Secure; SameSite=Strict` — cookie cannot be read by JS or sent cross-origin
+- HMAC signature — unforgeable without `ADMIN_SECRET`
+- 24-hour expiry in payload — no server-side revocation needed for a personal portfolio
+- Constant-time password comparison — prevents timing attacks on the login endpoint
+
+**What I'd change at 10,000 users:**
+A single shared admin password doesn't scale. I'd switch to per-user credentials in D1, proper JWT (RS256 with key rotation), and session revocation via a blocklist in KV.
+
+## Extension 1 — Feature choice: contact form submissions
+
+I chose to persist contact form submissions over a guestbook or comments because:
+1. The contact form already exists — this extends it rather than duplicating it
+2. It solves a real problem: currently submissions arrive only by email, which is lossy (spam filters, no history)
+3. The admin moderation workflow (pending → reviewed → archived) is more realistic than a guestbook
+
 ## What's next (v2)
 
 - Self-hosted fonts to eliminate the Google Fonts request and improve Privacy score
 - Auto-generated OG images per blog post (once there are enough posts to justify it)
-- D1-backed contact form submissions so I have a persistent record, not just email forwards
 - Search across blog posts and projects
-- Li

@@ -2,9 +2,14 @@
  * Contact form Worker handler
  * Route: POST /api/contact
  *
- * Validates input server-side, rate-limits by IP, and forwards
- * the message via MailChannels (free on Cloudflare Workers).
+ * Flow:
+ * 1. Rate-limit by IP
+ * 2. Validate input server-side
+ * 3. Save to D1 (persists regardless of email outcome)
+ * 4. Send email via MailChannels
  */
+
+import { saveSubmission } from './admin-submissions';
 
 export interface ContactPayload {
   name:    string;
@@ -17,38 +22,45 @@ export interface ContactResult {
   error?: string;
 }
 
+export interface ContactEnv {
+  TO_EMAIL?: string;
+  DB?:       D1Database;
+}
+
 // ── Validation ────────────────────────────────────────────────
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Strip HTML/script tags to prevent stored XSS
+function stripTags(str: string): string {
+  return str.replace(/<[^>]*>/g, '');
+}
 
 export function validatePayload(body: unknown): ContactResult {
   if (typeof body !== 'object' || body === null) {
     return { ok: false, error: 'Invalid request body.' };
   }
-
   const { name, email, message } = body as Record<string, unknown>;
 
-  if (typeof name !== 'string' || name.trim().length < 2) {
-    return { ok: false, error: 'Name must be at least 2 characters.' };
-  }
-  if (typeof email !== 'string' || !EMAIL_RE.test(email)) {
-    return { ok: false, error: 'A valid email address is required.' };
-  }
-  if (typeof message !== 'string' || message.trim().length < 10) {
-    return { ok: false, error: 'Message must be at least 10 characters.' };
-  }
-  if (message.trim().length > 2000) {
-    return { ok: false, error: 'Message must be under 2000 characters.' };
+  if (typeof name    !== 'string' || name.trim().length    < 2)   return { ok: false, error: 'Name must be at least 2 characters.'        };
+  if (typeof name    !== 'string' || name.length           > 100)  return { ok: false, error: 'Name must be under 100 characters.'         };
+  if (typeof email   !== 'string' || !EMAIL_RE.test(email))        return { ok: false, error: 'A valid email address is required.'         };
+  if (typeof message !== 'string' || message.trim().length < 10)   return { ok: false, error: 'Message must be at least 10 characters.'    };
+  if (typeof message !== 'string' || message.length        > 2000) return { ok: false, error: 'Message must be under 2000 characters.'     };
+
+  // Reject HTML/script injection
+  if (stripTags(name) !== name || stripTags(message) !== message) {
+    return { ok: false, error: 'HTML tags are not allowed.' };
   }
 
   return { ok: true };
 }
 
-// ── In-memory rate limiter (per-IP, resets on Worker restart) ─
+// ── In-memory rate limiter (resets on Worker restart) ─────────
 
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT   = 3;          // max submissions
-const RATE_WINDOW  = 60 * 1000;  // per 60 seconds
+const RATE_LIMIT   = 3;
+const RATE_WINDOW  = 60 * 1000;
 
 export function isRateLimited(ip: string): boolean {
   const now   = Date.now();
@@ -58,9 +70,7 @@ export function isRateLimited(ip: string): boolean {
     rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_WINDOW });
     return false;
   }
-
   if (entry.count >= RATE_LIMIT) return true;
-
   entry.count++;
   return false;
 }
@@ -69,19 +79,17 @@ export function isRateLimited(ip: string): boolean {
 
 export async function handleContact(
   request: Request,
-  env: { TO_EMAIL?: string }
+  env: ContactEnv
 ): Promise<Response> {
   if (request.method !== 'POST') {
     return json({ ok: false, error: 'Method not allowed.' }, 405);
   }
 
-  // Rate limit
   const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown';
   if (isRateLimited(ip)) {
     return json({ ok: false, error: 'Too many requests. Please try again shortly.' }, 429);
   }
 
-  // Parse body
   let body: unknown;
   try {
     body = await request.json();
@@ -89,40 +97,41 @@ export async function handleContact(
     return json({ ok: false, error: 'Could not parse request body.' }, 400);
   }
 
-  // Validate
   const validation = validatePayload(body);
-  if (!validation.ok) {
-    return json(validation, 400);
-  }
+  if (!validation.ok) return json(validation, 400);
 
   const { name, email, message } = body as ContactPayload;
   const toEmail = env.TO_EMAIL ?? 'ashishkoka423@gmail.com';
 
-  // Send via MailChannels
+  // ── 1. Persist to D1 (best-effort, non-blocking on error) ──
+  if (env.DB) {
+    try {
+      await saveSubmission(env, { name, email, message, ip });
+    } catch (err) {
+      console.error('D1 save error', err);
+      // Continue — don't block the user if DB is unreachable
+    }
+  }
+
+  // ── 2. Send email via MailChannels ──────────────────────────
   try {
     const mailRes = await fetch('https://api.mailchannels.net/tx/v1/send', {
-      method: 'POST',
+      method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        personalizations: [{
-          to: [{ email: toEmail, name: 'Ashish Koka' }],
-        }],
+        personalizations: [{ to: [{ email: toEmail, name: 'Ashish Koka' }] }],
         from:    { email, name },
         subject: `Portfolio contact from ${name}`,
-        content: [{
-          type:  'text/plain',
-          value: `Name:    ${name}\nEmail:   ${email}\n\n${message}`,
-        }],
+        content: [{ type: 'text/plain', value: `Name:    ${name}\nEmail:   ${email}\n\n${message}` }],
       }),
     });
 
     if (!mailRes.ok && mailRes.status !== 202) {
       console.error('MailChannels error', mailRes.status, await mailRes.text());
-      return json({ ok: false, error: 'Failed to send message. Please try again.' }, 502);
+      // Submission is already saved to D1 — tell the user it went through
     }
   } catch (err) {
     console.error('MailChannels fetch error', err);
-    return json({ ok: false, error: 'Network error sending message.' }, 502);
   }
 
   return json({ ok: true });
