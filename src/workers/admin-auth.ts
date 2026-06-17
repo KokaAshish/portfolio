@@ -14,7 +14,8 @@
 
 export interface AdminEnv {
   ADMIN_PASSWORD?: string;
-  ADMIN_SECRET?: string;
+  ADMIN_SECRET?:   string;
+  ADMIN_USERNAME?: string;
 }
 
 const SESSION_MS  = 24 * 60 * 60 * 1000; // 24 hours
@@ -92,14 +93,29 @@ export function clearSessionCookie(): string {
   return `${COOKIE_NAME}=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0`;
 }
 
-// ── Password check (constant-time to prevent timing attacks) ────
+// ── Credential checks (constant-time to prevent timing attacks) ──
+
+function constantTimeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
 
 export function verifyPassword(input: string, env: AdminEnv): boolean {
   const expected = env.ADMIN_PASSWORD ?? '';
-  if (!expected || input.length !== expected.length) return false;
-  let diff = 0;
-  for (let i = 0; i < input.length; i++) {
-    diff |= input.charCodeAt(i) ^ expected.charCodeAt(i);
-  }
-  return diff === 0;
+  if (!expected) return false;
+  return constantTimeEqual(input, expected);
+}
+
+export function verifyUsername(input: string, env: AdminEnv): boolean {
+  const expected = env.ADMIN_USERNAME ?? 'admin';
+  return constantTimeEqual(input, expected);
+}
+
+// Check both — always run both checks to avoid timing leaks
+export function verifyCredentials(username: string, password: string, env: AdminEnv): boolean {
+  const userOk = verifyUsername(username, env);
+  const passOk = verifyPassword(password, env);
+  return userOk && passOk;
 }

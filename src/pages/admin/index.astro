@@ -166,8 +166,12 @@ function badge(status: string) {
       <p>Access the contact submissions dashboard.</p>
       <form id="login-form">
         <div class="field">
+          <label for="username">Username</label>
+          <input type="text" id="username" name="username" autocomplete="username" required placeholder="admin"/>
+        </div>
+        <div class="field">
           <label for="password">Password</label>
-          <input type="password" id="password" name="password" autocomplete="current-password" required/>
+          <input type="password" id="password" name="password" autocomplete="current-password" required placeholder="••••••••"/>
         </div>
         <div id="login-error" role="alert" aria-live="polite"></div>
         <button type="submit" class="btn btn-primary" id="login-btn">Sign in</button>
@@ -268,9 +272,10 @@ function badge(status: string) {
   // ── Login ───────────────────────────────────────────────────
   document.getElementById('login-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const btn   = document.getElementById('login-btn') as HTMLButtonElement;
-    const error = document.getElementById('login-error') as HTMLElement;
-    const pw    = (document.getElementById('password') as HTMLInputElement).value;
+    const btn      = document.getElementById('login-btn') as HTMLButtonElement;
+    const error    = document.getElementById('login-error') as HTMLElement;
+    const username = (document.getElementById('username') as HTMLInputElement).value;
+    const pw       = (document.getElementById('password') as HTMLInputElement).value;
     btn.disabled = true;
     btn.textContent = 'Signing in…';
     error.textContent = '';
@@ -279,7 +284,7 @@ function badge(status: string) {
       const res  = await fetch('/api/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: pw }),
+        body: JSON.stringify({ username, password: pw }),
       });
       const json = await res.json() as { ok: boolean; error?: string };
       if (json.ok) {
