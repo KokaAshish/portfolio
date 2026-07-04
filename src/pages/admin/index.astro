@@ -1,0 +1,356 @@
+---
+export const prerender = false;
+
+import { isAuthenticated } from '../../workers/admin-auth';
+import { listSubmissions } from '../../workers/admin-submissions';
+import type { Submission } from '../../workers/admin-submissions';
+
+type RuntimeEnv = { DB?: D1Database; ADMIN_PASSWORD?: string };
+const runtime = (Astro.locals as Record<string, unknown>).runtime as { env: RuntimeEnv } | undefined;
+const env     = runtime?.env ?? {};
+
+const authenticated = await isAuthenticated(Astro.request, env);
+
+let submissions: Submission[] = [];
+let total  = 0;
+let pages  = 1;
+
+const url    = new URL(Astro.request.url);
+const page   = Math.max(1, parseInt(url.searchParams.get('page') ?? '1'));
+const filter = url.searchParams.get('status') ?? '';
+
+if (authenticated && env.DB) {
+  const data = await listSubmissions(
+    { DB: env.DB },
+    page,
+    20,
+    filter as 'pending' | 'reviewed' | 'archived' | undefined || undefined
+  );
+  submissions = data.submissions;
+  total       = data.total;
+  pages       = data.pages;
+}
+
+function badge(status: string) {
+  const map: Record<string, string> = {
+    pending:  '#f0b429',
+    reviewed: '#28c840',
+    archived: '#6b6880',
+  };
+  return `color:${map[status] ?? '#888'}`;
+}
+---
+
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Admin — Ashish Koka</title>
+  <meta name="robots" content="noindex,nofollow"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:       #08080f;
+      --surface:  #0f0f1a;
+      --elevated: #16162a;
+      --border:   #1e1e35;
+      --text:     #e8e6f0;
+      --muted:    #6b6880;
+      --accent:   #7c6af7;
+      --green:    #28c840;
+      --amber:    #f0b429;
+      --red:      #ff5f57;
+      --mono:     'JetBrains Mono', monospace;
+      --sans:     'Inter', sans-serif;
+      --radius:   8px;
+    }
+    body  { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; padding: 2rem; }
+    a     { color: var(--accent); text-decoration: none; }
+    input { font: inherit; }
+
+    /* ── Layout ── */
+    .page   { max-width: 1100px; margin: 0 auto; }
+    .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem; border-bottom: 1px solid var(--border); padding-bottom: 1.5rem; }
+    .logo   { font-family: var(--mono); font-size: 1.1rem; font-weight: 700; color: var(--accent); }
+    .title  { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; }
+
+    /* ── Login card ── */
+    .login-wrap { display: flex; align-items: center; justify-content: center; min-height: 70vh; }
+    .login-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+      padding: 2.5rem; width: 100%; max-width: 380px;
+      box-shadow: 0 24px 48px rgba(0,0,0,.5);
+    }
+    .login-card h1 { font-size: 1.5rem; margin-bottom: .5rem; }
+    .login-card p  { color: var(--muted); font-size: .875rem; margin-bottom: 2rem; }
+    .field  { display: flex; flex-direction: column; gap: .5rem; margin-bottom: 1.25rem; }
+    .field label { font-size: .8rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+    .field input {
+      background: var(--elevated); border: 1px solid var(--border); border-radius: var(--radius);
+      color: var(--text); padding: .75rem 1rem; font-size: 1rem; width: 100%;
+      transition: border-color .15s;
+    }
+    .field input:focus { outline: none; border-color: var(--accent); }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex; align-items: center; gap: .4rem; padding: .5rem 1rem;
+      border-radius: var(--radius); font-size: .8rem; font-weight: 600; cursor: pointer;
+      border: 1px solid transparent; transition: all .15s; font-family: inherit;
+    }
+    .btn-primary { background: var(--accent); color: #fff; width: 100%; justify-content: center; padding: .875rem; }
+    .btn-primary:hover { filter: brightness(1.1); }
+    .btn-ghost   { background: transparent; color: var(--muted); border-color: var(--border); }
+    .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-sm { padding: .3rem .65rem; font-size: .75rem; }
+
+    /* ── Error ── */
+    #login-error { color: var(--red); font-size: .8rem; min-height: 1.2em; font-family: var(--mono); margin-top: .5rem; }
+
+    /* ── Filters ── */
+    .toolbar { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .filter-group { display: flex; gap: .5rem; }
+    .filter-btn {
+      padding: .3rem .75rem; border-radius: 100px; font-size: .75rem; font-weight: 500;
+      border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer;
+      font-family: var(--mono); transition: all .15s;
+    }
+    .filter-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(124,106,247,.1); }
+    .count { font-family: var(--mono); font-size: .8rem; color: var(--muted); margin-left: auto; }
+
+    /* ── Table ── */
+    .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: .875rem 1rem; text-align: left; }
+    th { font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); background: var(--surface); border-bottom: 1px solid var(--border); font-family: var(--mono); }
+    tr:not(:last-child) td { border-bottom: 1px solid var(--border); }
+    tr:hover td { background: var(--elevated); }
+
+    .badge {
+      display: inline-block; font-family: var(--mono); font-size: .7rem; font-weight: 600;
+      padding: .15rem .5rem; border-radius: 100px; border: 1px solid currentColor;
+      text-transform: uppercase; letter-spacing: .05em;
+    }
+    .msg-preview { color: var(--muted); font-size: .85rem; max-width: 320px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .date { font-family: var(--mono); font-size: .75rem; color: var(--muted); white-space: nowrap; }
+    .actions { display: flex; gap: .4rem; }
+
+    /* ── Empty state ── */
+    .empty { text-align: center; padding: 4rem 2rem; color: var(--muted); }
+    .empty p { margin-top: .5rem; font-size: .875rem; }
+
+    /* ── Pagination ── */
+    .pagination { display: flex; gap: .5rem; justify-content: center; margin-top: 1.5rem; }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed; bottom: 1.5rem; right: 1.5rem; background: var(--surface);
+      border: 1px solid var(--border); border-radius: var(--radius); padding: .75rem 1.25rem;
+      font-size: .85rem; box-shadow: 0 8px 24px rgba(0,0,0,.4);
+      transform: translateY(120%); transition: transform .25s; z-index: 999;
+    }
+    #toast.show { transform: translateY(0); }
+  </style>
+</head>
+<body>
+<div class="page">
+
+{!authenticated ? (
+  /* ── LOGIN FORM ─────────────────────────────────── */
+  <div class="login-wrap">
+    <div class="login-card">
+      <h1>Admin login</h1>
+      <p>Access the contact submissions dashboard.</p>
+      <form id="login-form">
+        <div class="field">
+          <label for="username">Username</label>
+          <input type="text" id="username" name="username" autocomplete="username" required placeholder="admin"/>
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" autocomplete="current-password" required placeholder="••••••••"/>
+        </div>
+        <div id="login-error" role="alert" aria-live="polite"></div>
+        <button type="submit" class="btn btn-primary" id="login-btn">Sign in</button>
+      </form>
+    </div>
+  </div>
+) : (
+  /* ── SUBMISSIONS DASHBOARD ─────────────────────── */
+  <div>
+    <div class="header">
+      <div>
+        <a href="/" class="logo">← Ashish Koka</a>
+        <h1 class="title" style="margin-top:.5rem">Contact submissions</h1>
+      </div>
+      <button class="btn btn-ghost" id="logout-btn">Sign out</button>
+    </div>
+
+    <div class="toolbar">
+      <div class="filter-group">
+        {[['', 'All'], ['pending', 'Pending'], ['reviewed', 'Reviewed'], ['archived', 'Archived']].map(([val, label]) => (
+          <a
+            href={val ? `?status=${val}` : '?'}
+            class={`filter-btn ${filter === val ? 'active' : ''}`}
+          >{label}</a>
+        ))}
+      </div>
+      <span class="count">{total} submission{total !== 1 ? 's' : ''}</span>
+    </div>
+
+    {submissions.length === 0 ? (
+      <div class="empty">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 8l7.89 5.26a2 2 0 0 0 2.22 0L21 8M5 19h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2z"/></svg>
+        <p>No submissions found.</p>
+      </div>
+    ) : (
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Message</th>
+              <th>Date</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {submissions.map(s => (
+              <tr id={`row-${s.id}`}>
+                <td style="font-family:var(--mono);font-size:.8rem;color:var(--muted)">{s.id}</td>
+                <td style="font-weight:500">{s.name}</td>
+                <td><a href={`mailto:${s.email}`}>{s.email}</a></td>
+                <td><div class="msg-preview" title={s.message}>{s.message}</div></td>
+                <td><div class="date">{new Date(s.submitted_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</div></td>
+                <td>
+                  <span class="badge" style={badge(s.status)}>{s.status}</span>
+                </td>
+                <td>
+                  <div class="actions">
+                    {s.status !== 'reviewed' && (
+                      <button class="btn btn-ghost btn-sm action-btn" data-id={s.id} data-status="reviewed">✓ Review</button>
+                    )}
+                    {s.status !== 'archived' && (
+                      <button class="btn btn-ghost btn-sm action-btn" data-id={s.id} data-status="archived">Archive</button>
+                    )}
+                    {s.status === 'archived' && (
+                      <button class="btn btn-ghost btn-sm action-btn" data-id={s.id} data-status="pending">Restore</button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+
+    {pages > 1 && (
+      <div class="pagination">
+        {Array.from({ length: pages }, (_, i) => i + 1).map(p => (
+          <a href={`?page=${p}${filter ? `&status=${filter}` : ''}`}
+             class={`btn btn-ghost btn-sm ${p === page ? 'active' : ''}`}
+             style={p === page ? 'border-color:var(--accent);color:var(--accent)' : ''}
+          >{p}</a>
+        ))}
+      </div>
+    )}
+  </div>
+)}
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+  // ── Login ───────────────────────────────────────────────────
+  document.getElementById('login-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn      = document.getElementById('login-btn') as HTMLButtonElement;
+    const error    = document.getElementById('login-error') as HTMLElement;
+    const username = (document.getElementById('username') as HTMLInputElement).value;
+    const pw       = (document.getElementById('password') as HTMLInputElement).value;
+    btn.disabled = true;
+    btn.textContent = 'Signing in…';
+    error.textContent = '';
+
+    try {
+      const res  = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password: pw }),
+      });
+      const json = await res.json() as { ok: boolean; error?: string };
+      if (json.ok) {
+        window.location.reload();
+      } else {
+        error.textContent = json.error ?? 'Login failed.';
+        btn.disabled = false;
+        btn.textContent = 'Sign in';
+      }
+    } catch {
+      error.textContent = 'Network error — please try again.';
+      btn.disabled = false;
+      btn.textContent = 'Sign in';
+    }
+  });
+
+  // ── Logout ──────────────────────────────────────────────────
+  document.getElementById('logout-btn')?.addEventListener('click', async () => {
+    await fetch('/api/admin/logout', { method: 'POST' });
+    window.location.reload();
+  });
+
+  // ── Status updates ──────────────────────────────────────────
+  const statusColors: Record<string, string> = {
+    pending:  '#f0b429',
+    reviewed: '#28c840',
+    archived: '#6b6880',
+  };
+
+  function showToast(msg: string) {
+    const toast = document.getElementById('toast') as HTMLElement;
+    toast.textContent = msg;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2500);
+  }
+
+  document.querySelectorAll<HTMLButtonElement>('.action-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id     = Number(btn.dataset.id);
+      const status = btn.dataset.status as string;
+      btn.disabled = true;
+
+      try {
+        const res  = await fetch('/api/admin/submissions', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, status }),
+        });
+        const json = await res.json() as { ok: boolean };
+        if (json.ok) {
+          // Update badge in row without full reload
+          const row   = document.getElementById(`row-${id}`);
+          const badge = row?.querySelector('.badge') as HTMLElement;
+          if (badge) {
+            badge.textContent = status;
+            badge.style.color = statusColors[status] ?? '#888';
+          }
+          showToast(`Marked as ${status}`);
+          setTimeout(() => window.location.reload(), 600);
+        }
+      } catch {
+        showToast('Update failed — try again.');
+        btn.disabled = false;
+      }
+    });
+  });
+</script>
+</body>
+</html>
