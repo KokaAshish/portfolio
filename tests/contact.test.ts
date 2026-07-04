@@ -60,35 +60,70 @@ describe('validatePayload', () => {
 
 // ── isRateLimited ─────────────────────────────────────────────
 
-describe('isRateLimited', () => {
-  it('allows first request', () => {
+describe('isRateLimited (in-memory fallback — no bindings configured)', () => {
+  it('allows first request', async () => {
     const ip = `test-ip-${Math.random()}`;
-    expect(isRateLimited(ip)).toBe(false);
+    expect(await isRateLimited(ip)).toBe(false);
   });
 
-  it('allows requests up to the limit', () => {
+  it('allows requests up to the limit', async () => {
     const ip = `test-ip-${Math.random()}`;
-    expect(isRateLimited(ip)).toBe(false); // 1
-    expect(isRateLimited(ip)).toBe(false); // 2
-    expect(isRateLimited(ip)).toBe(false); // 3
+    expect(await isRateLimited(ip)).toBe(false); // 1
+    expect(await isRateLimited(ip)).toBe(false); // 2
+    expect(await isRateLimited(ip)).toBe(false); // 3
   });
 
-  it('blocks after limit is reached', () => {
+  it('blocks after limit is reached', async () => {
     const ip = `test-ip-${Math.random()}`;
-    isRateLimited(ip); // 1
-    isRateLimited(ip); // 2
-    isRateLimited(ip); // 3
-    expect(isRateLimited(ip)).toBe(true); // 4 — over limit
+    await isRateLimited(ip); // 1
+    await isRateLimited(ip); // 2
+    await isRateLimited(ip); // 3
+    expect(await isRateLimited(ip)).toBe(true); // 4 — over limit
   });
 
-  it('treats different IPs independently', () => {
+  it('treats different IPs independently', async () => {
     const ip1 = `test-ip-a-${Math.random()}`;
     const ip2 = `test-ip-b-${Math.random()}`;
-    isRateLimited(ip1);
-    isRateLimited(ip1);
-    isRateLimited(ip1);
-    isRateLimited(ip1); // blocked
-    expect(isRateLimited(ip2)).toBe(false); // ip2 is unaffected
+    await isRateLimited(ip1);
+    await isRateLimited(ip1);
+    await isRateLimited(ip1);
+    await isRateLimited(ip1); // blocked
+    expect(await isRateLimited(ip2)).toBe(false); // ip2 is unaffected
+  });
+});
+
+describe('isRateLimited (edge layer — RATE_LIMITER binding)', () => {
+  it('blocks immediately when the edge binding denies the request', async () => {
+    const ip = `test-ip-${Math.random()}`;
+    const env = { RATE_LIMITER: { limit: async () => ({ success: false }) } };
+    expect(await isRateLimited(ip, env)).toBe(true);
+  });
+
+  it('falls through to the app layer when the edge binding allows it', async () => {
+    const ip = `test-ip-${Math.random()}`;
+    const env = { RATE_LIMITER: { limit: async () => ({ success: true }) } };
+    expect(await isRateLimited(ip, env)).toBe(false);
+  });
+});
+
+describe('isRateLimited (app layer — RATE_LIMIT_KV binding)', () => {
+  function makeFakeKV() {
+    const store = new Map<string, string>();
+    return {
+      async get(key: string) { return store.get(key) ?? null; },
+      async put(key: string, value: string) { store.set(key, value); },
+    } as unknown as KVNamespace;
+  }
+
+  it('persists the count across calls, unlike an in-memory Map', async () => {
+    const ip  = `test-ip-${Math.random()}`;
+    const kv  = makeFakeKV();
+    const env = { RATE_LIMIT_KV: kv };
+
+    expect(await isRateLimited(ip, env)).toBe(false); // 1
+    expect(await isRateLimited(ip, env)).toBe(false); // 2
+    expect(await isRateLimited(ip, env)).toBe(false); // 3
+    expect(await isRateLimited(ip, env)).toBe(true);  // 4 — over limit
   });
 });
 

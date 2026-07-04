@@ -67,3 +67,40 @@ The admin list always filters by status and/or sorts by date — both are indexe
 - Add full-text search on name/email/message (SQLite FTS5)
 - Consider archiving rows older than 90 days to a separate cold table
 - Export to CSV/JSON for bulk analysis
+
+## Table: `admin_sessions`
+
+Server-side session store for admin login. The cookie holds only the
+random `id` — validity and expiry live here, so logout can actually
+revoke a session instead of just asking the browser to forget a token.
+
+```sql
+CREATE TABLE admin_sessions (
+  id           TEXT PRIMARY KEY,
+  ip           TEXT,
+  user_agent   TEXT,
+  created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+  expires_at   TEXT NOT NULL
+);
+```
+
+| Field | Type | Constraint | Why |
+|---|---|---|---|
+| `id` | TEXT PK | `crypto.randomUUID()` | Unguessable, doubles as the cookie value |
+| `ip` / `user_agent` | TEXT | Nullable | Audit trail for active sessions |
+| `created_at` | TEXT | ISO-8601 UTC | When the session was issued |
+| `expires_at` | TEXT | ISO-8601 UTC, NOT NULL | 24h from login; checked on every request |
+
+### Lifecycle
+
+- **Login** — `INSERT` a new row, set an HttpOnly/Secure/SameSite=Strict cookie to its `id`. Also opportunistically `DELETE`s any already-expired rows (Workers have no background cron, so cleanup piggybacks on login).
+- **Each request** — `SELECT ... WHERE id = ? AND expires_at > datetime('now')`; row absent or expired ⇒ unauthenticated.
+- **Logout** — `DELETE FROM admin_sessions WHERE id = ?`, then clear the cookie. The session is gone from the database, not just the browser, so a captured cookie can't be replayed after logout.
+
+### Indexes
+
+```sql
+CREATE INDEX idx_sessions_expires ON admin_sessions (expires_at);
+```
+
+Used by the login-time cleanup sweep.

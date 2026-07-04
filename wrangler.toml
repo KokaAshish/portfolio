@@ -7,7 +7,7 @@ main = "./dist/_worker.js"
 directory = "./dist"
 binding = "ASSETS"
 
-# D1 database — contact form submissions
+# D1 database — contact form submissions + admin sessions
 # To create: npx wrangler d1 create portfolio-contacts
 # Then replace the database_id below with the one printed by that command
 [[d1_databases]]
@@ -15,10 +15,36 @@ binding = "DB"
 database_name = "portfolio-contacts"
 database_id = "61e391b2-62bd-4f72-8f8a-dbb37540bb3e"
 
+# Rate limiting — edge layer (Cloudflare's native Rate Limiting binding)
+# Blocks abusive IPs before the request reaches Worker code at all.
+# Docs: https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/
+# 10 requests per 60s window, per IP, across all routes using this binding.
+[[unsafe.bindings]]
+name = "RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1001"
+
+[unsafe.bindings.simple]
+limit = 10
+period = 60
+
+# Rate limiting — app layer (KV-backed per-IP counter)
+# Finer-grained, per-route limit that persists across Worker cold starts
+# (unlike an in-memory counter). Second line of defense behind RATE_LIMITER.
+# To create: npx wrangler kv namespace create RATE_LIMIT_KV
+# Then replace the id below with the one printed by that command
+[[kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "f4777bf7ce844d53b5b5d54891526b7e"
+
 [vars]
 ENVIRONMENT = "production"
 
 # Secrets (set via: npx wrangler secret put ADMIN_PASSWORD)
 # ADMIN_PASSWORD — password for /admin login
-# ADMIN_SECRET  — HMAC signing key for session tokens (random string, min 32 chars)
-# TO_EMAIL      — destination for contact form emails
+# ADMIN_USERNAME — username for /admin login (defaults to "admin" if unset)
+# TO_EMAIL       — destination for contact form emails
+#
+# ADMIN_SECRET is no longer used — sessions are now stored server-side in D1
+# (see migrations/0002_admin_sessions.sql) instead of signed stateless cookies.
+# You can safely leave any existing ADMIN_SECRET Worker secret in place or delete it.

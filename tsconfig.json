@@ -6,5 +6,6 @@
       "@/*": ["src/*"]
     },
     "strictNullChecks": true
-  }
+  },
+  "exclude": ["dist", "portfolio"]
 }

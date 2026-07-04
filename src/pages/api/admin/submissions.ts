@@ -8,7 +8,6 @@ export const prerender = false;
 type RuntimeEnv = {
   DB?:             D1Database;
   ADMIN_PASSWORD?: string;
-  ADMIN_SECRET?:   string;
 };
 
 function getEnv(locals: unknown): RuntimeEnv {

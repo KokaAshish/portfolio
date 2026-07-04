@@ -48,27 +48,69 @@ The mobile experience at 320px is functional but not great. The hero title wraps
 
 ## Extension 1 — Auth mechanism decision
 
-I chose **stateless HMAC-SHA256 signed cookies** over sessions or JWTs.
+**Update:** originally shipped as stateless HMAC-SHA256 signed cookies (see
+history below); replaced with **D1-backed server-side sessions** because a
+stateless token can't be revoked — logout could only ask the browser to
+forget the cookie, while a captured/replayed token stayed valid until its
+24h expiry regardless.
 
-**Why not a session table in D1?**
-Workers are stateless — in-memory session maps reset on every cold start. A D1 session table would work, but it adds a round-trip to D1 on every admin request. For a single-admin portfolio, the extra complexity isn't justified.
+**Current design — `admin_sessions` table in D1:**
+The cookie carries only a random `crypto.randomUUID()` session id. Login
+inserts a row (`id`, `ip`, `user_agent`, `expires_at`); every admin request
+does `SELECT ... WHERE id = ? AND expires_at > now()`; logout does
+`DELETE FROM admin_sessions WHERE id = ?`. See
+[sequence-admin-auth.md](./docs/diagrams/sequence-admin-auth.md) for the
+full numbered flow, and [DATA-MODEL.md](./DATA-MODEL.md) for the schema.
 
-**Why not a JWT library?**
-The Web Crypto API (`crypto.subtle`) is available natively in Workers. A JWT library would add a dependency to solve a problem I can solve in 40 lines. I implemented the same primitives: HMAC-SHA256 signing, base64 encoding, expiry in the payload.
+**Why this is worth the extra D1 round-trip:**
+The admin surface is small (one page, a handful of requests per session),
+so the added D1 lookup per request is negligible. In exchange, logout is a
+real revocation, and a compromised cookie can be invalidated at any time by
+deleting its row — properties a stateless signed cookie cannot offer no
+matter how it's signed.
 
-**Token format:**
-```
-base64(JSON({exp})).base64(HMAC-SHA256(ADMIN_SECRET, base64(JSON({exp}))))
-```
+**Original (superseded) design — for history:**
+Stateless HMAC-SHA256 signed cookies: `base64(JSON({exp})).base64(HMAC-SHA256(ADMIN_SECRET, base64(JSON({exp}))))`.
+Rejected in favor of the above once "logout doesn't actually revoke
+anything" was flagged as a real security gap rather than an acceptable
+trade-off.
 
-**Security properties:**
+**Security properties (still true):**
 - `HttpOnly; Secure; SameSite=Strict` — cookie cannot be read by JS or sent cross-origin
-- HMAC signature — unforgeable without `ADMIN_SECRET`
-- 24-hour expiry in payload — no server-side revocation needed for a personal portfolio
+- Session id is a cryptographically random UUID — unguessable
 - Constant-time password comparison — prevents timing attacks on the login endpoint
 
 **What I'd change at 10,000 users:**
-A single shared admin password doesn't scale. I'd switch to per-user credentials in D1, proper JWT (RS256 with key rotation), and session revocation via a blocklist in KV.
+A single shared admin password doesn't scale. I'd switch to per-user credentials in D1, and add a scheduled cron (rather than login-time cleanup) to sweep expired sessions.
+
+## Extension 1 — Rate limiting: two layers, not one
+
+The original `isRateLimited` was a single in-memory `Map`, which resets on
+every Worker cold start — under real traffic patterns that's frequently,
+so the limit was more theoretical than real.
+
+**Layer 1 — edge (`RATE_LIMITER` binding):** Cloudflare's native Workers
+Rate Limiting binding, configured in `wrangler.toml`. Runs before any
+Worker code executes, so abusive IPs are rejected at the edge — cheapest
+possible layer, coarse-grained (shared across all routes using it).
+
+**Layer 2 — application (`RATE_LIMIT_KV`):** a KV-backed per-IP counter,
+scoped per-route (`ratelimit:contact:<ip>`), with a TTL matching the
+rate-limit window. Persists across cold starts, unlike the old in-memory
+Map, and lets the contact form have a stricter limit than a hypothetical
+read-only endpoint.
+
+**Why keep the in-memory fallback?** Local dev (`astro dev`, and CI) has
+neither binding configured. Rather than fail closed or open entirely, the
+code checks bindings in order (edge → KV → in-memory) so the form still
+degrades gracefully without extra local setup. See
+[sequence-contact-form.md](./docs/diagrams/sequence-contact-form.md).
+
+**Other approaches considered:**
+- **Cloudflare zone-level WAF rate-limiting rules** — dashboard/API-configured, but require a custom domain on a Cloudflare zone; `kokashish.workers.dev` is a `workers.dev` subdomain, not a zone, so this wasn't available.
+- **Durable Objects** — gives a single strongly-consistent counter per key (no eventual-consistency race between concurrent requests), at the cost of provisioning a DO class for something KV already handles well enough at this traffic volume.
+- **Turnstile/CAPTCHA** — complementary, not a replacement: stops scripted abuse before submission rather than throttling request rate. Worth adding alongside rate limiting, not instead of it.
+- **Third-party services (Upstash Redis, etc.)** — adds an external dependency and network hop for something Cloudflare already provides natively at the edge.
 
 ## Extension 1 — Feature choice: contact form submissions
 

@@ -1,92 +1,81 @@
 /**
- * Admin authentication — stateless HMAC-SHA256 signed cookies
+ * Admin authentication — server-side sessions backed by D1
  *
- * Why signed cookies over sessions:
- * - No database round-trip on every request
- * - Workers are stateless; in-memory session maps reset on cold start
- * - HMAC signature is unforgeable without the secret
- * - Expiry is encoded in the payload — no server-side revocation needed
- *   (acceptable for a personal portfolio admin with 24h sessions)
- *
- * Token format: base64(payload).base64(hmac-sha256(ADMIN_SECRET, payload))
- * where payload = JSON({ exp: timestamp_ms })
+ * The cookie only carries a random, unguessable session id. All state
+ * (validity, expiry) lives in the `admin_sessions` table, so:
+ * - Logout actually revokes the session (DELETE the row) instead of just
+ *   asking the browser to forget a still-valid token.
+ * - A compromised cookie can be invalidated server-side at any time.
  */
 
 export interface AdminEnv {
+  DB?:             D1Database;
   ADMIN_PASSWORD?: string;
-  ADMIN_SECRET?:   string;
   ADMIN_USERNAME?: string;
 }
 
 const SESSION_MS  = 24 * 60 * 60 * 1000; // 24 hours
 const COOKIE_NAME = 'admin_session';
 
-// ── Crypto helpers ──────────────────────────────────────────────
+// ── Session store (D1) ───────────────────────────────────────────
 
-async function signingKey(secret: string): Promise<CryptoKey> {
-  return crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign', 'verify']
-  );
+export async function createSession(
+  env: AdminEnv,
+  meta: { ip?: string; userAgent?: string } = {}
+): Promise<string> {
+  if (!env.DB) throw new Error('DB not configured.');
+
+  const id        = crypto.randomUUID();
+  const expiresAt = new Date(Date.now() + SESSION_MS).toISOString();
+
+  // Opportunistic cleanup — keeps the table from growing unbounded
+  // (Workers have no background cron for this, so piggyback on login).
+  await env.DB.prepare(`DELETE FROM admin_sessions WHERE expires_at < datetime('now')`).run();
+
+  await env.DB.prepare(
+    `INSERT INTO admin_sessions (id, ip, user_agent, expires_at) VALUES (?, ?, ?, ?)`
+  ).bind(id, meta.ip ?? null, meta.userAgent ?? null, expiresAt).run();
+
+  return id;
 }
 
-function b64encode(buf: ArrayBuffer): string {
-  return btoa(String.fromCharCode(...new Uint8Array(buf)));
+export async function validateSession(env: AdminEnv, id: string): Promise<boolean> {
+  if (!env.DB || !id) return false;
+
+  const row = await env.DB.prepare(
+    `SELECT id FROM admin_sessions WHERE id = ? AND expires_at > datetime('now')`
+  ).bind(id).first();
+
+  return row !== null;
 }
 
-function b64decode(str: string): Uint8Array {
-  return Uint8Array.from(atob(str), c => c.charCodeAt(0));
-}
-
-// ── Token creation ──────────────────────────────────────────────
-
-export async function createSessionToken(env: AdminEnv): Promise<string> {
-  const secret = env.ADMIN_SECRET ?? 'fallback-change-this-in-production';
-  const payload = JSON.stringify({ exp: Date.now() + SESSION_MS });
-  const payloadB64 = btoa(payload);
-  const key = await signingKey(secret);
-  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(payloadB64));
-  return `${payloadB64}.${b64encode(sig)}`;
-}
-
-// ── Token verification ──────────────────────────────────────────
-
-export async function verifySessionToken(token: string, env: AdminEnv): Promise<boolean> {
-  try {
-    const secret = env.ADMIN_SECRET ?? 'fallback-change-this-in-production';
-    const [payloadB64, sigB64] = token.split('.');
-    if (!payloadB64 || !sigB64) return false;
-
-    const key = await signingKey(secret);
-    const valid = await crypto.subtle.verify(
-      'HMAC', key, b64decode(sigB64), new TextEncoder().encode(payloadB64)
-    );
-    if (!valid) return false;
-
-    const { exp } = JSON.parse(atob(payloadB64)) as { exp: number };
-    return Date.now() < exp;
-  } catch {
-    return false;
-  }
+export async function deleteSession(env: AdminEnv, id: string): Promise<void> {
+  if (!env.DB || !id) return;
+  await env.DB.prepare(`DELETE FROM admin_sessions WHERE id = ?`).bind(id).run();
 }
 
 // ── Request authentication ──────────────────────────────────────
 
-export async function isAuthenticated(request: Request, env: AdminEnv): Promise<boolean> {
+export function readSessionCookie(request: Request): string | null {
   const cookie = request.headers.get('Cookie') ?? '';
   const match  = cookie.match(new RegExp(`(?:^|;\\s*)${COOKIE_NAME}=([^;]+)`));
-  if (!match?.[1]) return false;
-  return verifySessionToken(match[1], env);
+  return match?.[1] ?? null;
+}
+
+export async function isAuthenticated(request: Request, env: AdminEnv): Promise<boolean> {
+  const id = readSessionCookie(request);
+  if (!id) return false;
+  return validateSession(env, id);
 }
 
 // ── Cookie builders ─────────────────────────────────────────────
 
-export async function makeSessionCookie(env: AdminEnv): Promise<string> {
-  const token = await createSessionToken(env);
-  return `${COOKIE_NAME}=${token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${SESSION_MS / 1000}`;
+export async function makeSessionCookie(
+  env: AdminEnv,
+  meta: { ip?: string; userAgent?: string } = {}
+): Promise<string> {
+  const id = await createSession(env, meta);
+  return `${COOKIE_NAME}=${id}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${SESSION_MS / 1000}`;
 }
 
 export function clearSessionCookie(): string {

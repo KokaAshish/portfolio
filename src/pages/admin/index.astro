@@ -5,7 +5,7 @@ import { isAuthenticated } from '../../workers/admin-auth';
 import { listSubmissions } from '../../workers/admin-submissions';
 import type { Submission } from '../../workers/admin-submissions';
 
-type RuntimeEnv = { DB?: D1Database; ADMIN_PASSWORD?: string; ADMIN_SECRET?: string };
+type RuntimeEnv = { DB?: D1Database; ADMIN_PASSWORD?: string };
 const runtime = (Astro.locals as Record<string, unknown>).runtime as { env: RuntimeEnv } | undefined;
 const env     = runtime?.env ?? {};
 
@@ -159,7 +159,7 @@ function badge(status: string) {
 <div class="page">
 
 {!authenticated ? (
-  <!-- ── LOGIN FORM ─────────────────────────────────── -->
+  /* ── LOGIN FORM ─────────────────────────────────── */
   <div class="login-wrap">
     <div class="login-card">
       <h1>Admin login</h1>
@@ -179,7 +179,7 @@ function badge(status: string) {
     </div>
   </div>
 ) : (
-  <!-- ── SUBMISSIONS DASHBOARD ─────────────────────── -->
+  /* ── SUBMISSIONS DASHBOARD ─────────────────────── */
   <div>
     <div class="header">
       <div>

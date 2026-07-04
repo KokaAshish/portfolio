@@ -22,9 +22,15 @@ export interface ContactResult {
   error?: string;
 }
 
+export interface RateLimiterBinding {
+  limit(options: { key: string }): Promise<{ success: boolean }>;
+}
+
 export interface ContactEnv {
-  TO_EMAIL?: string;
-  DB?:       D1Database;
+  TO_EMAIL?:      string;
+  DB?:            D1Database;
+  RATE_LIMITER?:  RateLimiterBinding; // edge layer — Cloudflare native Rate Limiting binding
+  RATE_LIMIT_KV?: KVNamespace;        // app layer — persists across Worker cold starts
 }
 
 // ── Validation ────────────────────────────────────────────────
@@ -56,13 +62,23 @@ export function validatePayload(body: unknown): ContactResult {
   return { ok: true };
 }
 
-// ── In-memory rate limiter (resets on Worker restart) ─────────
+// ── Rate limiting — two independent layers ─────────────────────
+//
+// 1. Edge  (env.RATE_LIMITER) — Cloudflare's native Rate Limiting binding.
+//    Runs before any Worker logic; cheap, coarse, first line of defense.
+// 2. App   (env.RATE_LIMIT_KV) — KV-backed per-IP counter. Finer-grained
+//    (per route) and, unlike an in-memory Map, persists across the
+//    Worker cold starts that happen constantly in production.
+//
+// Neither binding is required — local dev without them falls back to
+// an in-memory counter so the form still works unthrottled-but-safe.
+
+const RATE_LIMIT  = 3;
+const RATE_WINDOW = 60 * 1000;
 
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT   = 3;
-const RATE_WINDOW  = 60 * 1000;
 
-export function isRateLimited(ip: string): boolean {
+function isRateLimitedInMemory(ip: string): boolean {
   const now   = Date.now();
   const entry = rateLimitMap.get(ip);
 
@@ -73,6 +89,28 @@ export function isRateLimited(ip: string): boolean {
   if (entry.count >= RATE_LIMIT) return true;
   entry.count++;
   return false;
+}
+
+async function isRateLimitedInKV(ip: string, kv: KVNamespace): Promise<boolean> {
+  const key     = `ratelimit:contact:${ip}`;
+  const current = await kv.get(key);
+  const count   = current ? parseInt(current, 10) : 0;
+
+  if (count >= RATE_LIMIT) return true;
+
+  await kv.put(key, String(count + 1), { expirationTtl: RATE_WINDOW / 1000 });
+  return false;
+}
+
+export async function isRateLimited(ip: string, env: ContactEnv = {}): Promise<boolean> {
+  if (env.RATE_LIMITER) {
+    const { success } = await env.RATE_LIMITER.limit({ key: ip });
+    if (!success) return true;
+  }
+
+  if (env.RATE_LIMIT_KV) return isRateLimitedInKV(ip, env.RATE_LIMIT_KV);
+
+  return isRateLimitedInMemory(ip);
 }
 
 // ── Main handler ──────────────────────────────────────────────
@@ -86,7 +124,7 @@ export async function handleContact(
   }
 
   const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown';
-  if (isRateLimited(ip)) {
+  if (await isRateLimited(ip, env)) {
     return json({ ok: false, error: 'Too many requests. Please try again shortly.' }, 429);
   }
 
@@ -106,7 +144,7 @@ export async function handleContact(
   // ── 1. Persist to D1 (best-effort, non-blocking on error) ──
   if (env.DB) {
     try {
-      await saveSubmission(env, { name, email, message, ip });
+      await saveSubmission({ DB: env.DB }, { name, email, message, ip });
     } catch (err) {
       console.error('D1 save error', err);
       // Continue — don't block the user if DB is unreachable

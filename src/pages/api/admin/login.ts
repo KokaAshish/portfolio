@@ -3,9 +3,15 @@ import { verifyCredentials, makeSessionCookie } from '../../../workers/admin-aut
 
 export const prerender = false;
 
+type RuntimeEnv = {
+  DB?:             D1Database;
+  ADMIN_PASSWORD?: string;
+  ADMIN_USERNAME?: string;
+};
+
 export const POST: APIRoute = async (context) => {
   const runtime = (context.locals as Record<string, unknown>).runtime as
-    { env: { ADMIN_PASSWORD?: string; ADMIN_SECRET?: string; ADMIN_USERNAME?: string } } | undefined;
+    { env: RuntimeEnv } | undefined;
   const env = runtime?.env ?? {};
 
   let body: { username?: string; password?: string };
@@ -20,7 +26,12 @@ export const POST: APIRoute = async (context) => {
     return resp({ ok: false, error: 'Invalid username or password.' }, 401);
   }
 
-  const cookie = await makeSessionCookie(env);
+  if (!env.DB) return resp({ ok: false, error: 'Database not configured.' }, 500);
+
+  const cookie = await makeSessionCookie(env, {
+    ip:        context.request.headers.get('CF-Connecting-IP') ?? undefined,
+    userAgent: context.request.headers.get('User-Agent') ?? undefined,
+  });
   return new Response(JSON.stringify({ ok: true }), {
     status: 200,
     headers: { 'Content-Type': 'application/json', 'Set-Cookie': cookie },
