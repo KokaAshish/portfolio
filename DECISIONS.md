@@ -85,32 +85,9 @@ A single shared admin password doesn't scale. I'd switch to per-user credentials
 
 ## Extension 1 — Rate limiting: two layers, not one
 
-The original `isRateLimited` was a single in-memory `Map`, which resets on
-every Worker cold start — under real traffic patterns that's frequently,
-so the limit was more theoretical than real.
-
-**Layer 1 — edge (`RATE_LIMITER` binding):** Cloudflare's native Workers
-Rate Limiting binding, configured in `wrangler.toml`. Runs before any
-Worker code executes, so abusive IPs are rejected at the edge — cheapest
-possible layer, coarse-grained (shared across all routes using it).
-
-**Layer 2 — application (`RATE_LIMIT_KV`):** a KV-backed per-IP counter,
-scoped per-route (`ratelimit:contact:<ip>`), with a TTL matching the
-rate-limit window. Persists across cold starts, unlike the old in-memory
-Map, and lets the contact form have a stricter limit than a hypothetical
-read-only endpoint.
-
-**Why keep the in-memory fallback?** Local dev (`astro dev`, and CI) has
-neither binding configured. Rather than fail closed or open entirely, the
-code checks bindings in order (edge → KV → in-memory) so the form still
-degrades gracefully without extra local setup. See
-[sequence-contact-form.md](./docs/diagrams/sequence-contact-form.md).
-
-**Other approaches considered:**
-- **Cloudflare zone-level WAF rate-limiting rules** — dashboard/API-configured, but require a custom domain on a Cloudflare zone; `kokashish.workers.dev` is a `workers.dev` subdomain, not a zone, so this wasn't available.
-- **Durable Objects** — gives a single strongly-consistent counter per key (no eventual-consistency race between concurrent requests), at the cost of provisioning a DO class for something KV already handles well enough at this traffic volume.
-- **Turnstile/CAPTCHA** — complementary, not a replacement: stops scripted abuse before submission rather than throttling request rate. Worth adding alongside rate limiting, not instead of it.
-- **Third-party services (Upstash Redis, etc.)** — adds an external dependency and network hop for something Cloudflare already provides natively at the edge.
+Moved to its own doc — see [RATE-LIMITING.md](./RATE-LIMITING.md) for the
+full design (edge binding + KV counter + in-memory fallback, key
+namespacing per route, setup steps, and alternatives considered).
 
 ## Extension 1 — Feature choice: contact form submissions
 
@@ -118,6 +95,56 @@ I chose to persist contact form submissions over a guestbook or comments because
 1. The contact form already exists — this extends it rather than duplicating it
 2. It solves a real problem: currently submissions arrive only by email, which is lossy (spam filters, no history)
 3. The admin moderation workflow (pending → reviewed → archived) is more realistic than a guestbook
+
+## Extension 3 — AI chatbot: provider, grounding, and safety design
+
+**Provider:** Anthropic Claude (`claude-haiku-4-5-20251001`) via a direct
+`fetch` to the Messages API in [chat.ts](./src/workers/chat.ts) — no SDK
+dependency, matching the same pattern already used for MailChannels in
+`contact.ts`. Haiku is fast and cheap enough for a low-stakes Q&A widget;
+nothing here needs a larger model's reasoning.
+
+**Grounding:** all facts the bot is allowed to state live in
+[src/data/about-me.ts](./src/data/about-me.ts) as structured data, not
+scattered inline in prompt strings. `buildSystemPrompt()` renders it into
+the system prompt at request time. Updating the portfolio's facts means
+editing one file, and the prompt can't drift from it by construction.
+
+**Non-streaming, on purpose:** the Worker buffers the full Anthropic
+response before returning it, rather than proxying a token stream to the
+client. This is a deliberate trade-off: it makes the output-filtering step
+(below) trivial — inspect the complete reply before anything reaches the
+browser — whereas filtering a truly token-by-token stream would mean either
+buffering it anyway (defeating the point) or risking a leak slipping out
+mid-stream before the filter sees enough text to catch it. The UX cost is a
+short pause instead of a typewriter effect; on a portfolio contact widget,
+that's worth trading for the simpler, more auditable safety property.
+
+**Prompt injection defense (input side):** [chat.ts](./src/workers/chat.ts)
+`looksLikeInjection()` runs a deterministic regex pre-filter for classic
+jailbreak patterns ("ignore previous instructions", "you are now...",
+"reveal your system prompt", etc.) *before* calling the model at all — a
+match short-circuits to a canned refusal, costing nothing. This is on top
+of, not instead of, rule #4 in the system prompt itself telling the model
+to refuse the same patterns — defense in depth rather than relying on
+either layer alone.
+
+**Output filtering:** `filterOutput()` scans the model's reply for a small
+set of leak markers (the literal system-prompt section headers, the
+`ANTHROPIC_API_KEY` env var name) and swaps in a safe refusal if any match.
+This is why the design is non-streaming — see above.
+
+**Rate limiting:** reuses the exact two-layer pattern from the contact
+form, with its own key namespace so its quota never collides with the
+contact form's — full design in [RATE-LIMITING.md](./RATE-LIMITING.md);
+request flow in [sequence-chatbot.md](./docs/diagrams/sequence-chatbot.md).
+
+**Evals:** [scripts/eval-chatbot.mjs](./scripts/eval-chatbot.mjs) — 14
+deterministic test cases (regex/substring checks, no model-as-judge)
+covering grounding accuracy, out-of-scope refusal, prompt-injection
+resistance, and hallucination guards. Deliberately kept out of `npm test`
+/ CI since it makes real, billed API calls and needs a running server —
+run manually via `npm run eval:chat` against local dev or production.
 
 ## What's next (v2)
 

@@ -2,6 +2,7 @@
 import '../styles/global.css';
 import Navigation from '../components/Navigation.astro';
 import Footer from '../components/Footer.astro';
+import ChatWidget from '../components/ChatWidget.astro';
 
 interface Props {
   title: string;
@@ -72,6 +73,7 @@ const fullTitle = title === 'Ashish Koka' ? title : `${title} — Ashish Koka`;
       <slot />
     </main>
     <Footer />
+    <ChatWidget />
 
     <!-- Scroll reveal observer -->
     <script>

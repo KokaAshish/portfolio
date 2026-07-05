@@ -9,6 +9,7 @@ on GitHub, no extra tooling needed.
 | [architecture.md](./architecture.md) | System-wide component/architecture diagram — client, Astro Worker, D1, KV, rate limiter, MailChannels, CI/CD |
 | [sequence-contact-form.md](./sequence-contact-form.md) | Numbered step-by-step flow of a contact form submission, including both rate-limit layers |
 | [sequence-admin-auth.md](./sequence-admin-auth.md) | Numbered step-by-step flow of admin login, authenticated request, and logout (server-side session revocation) |
+| [sequence-chatbot.md](./sequence-chatbot.md) | Numbered step-by-step flow of a chat message: rate limiting, injection filter, grounding, model call, output filter |
 | [deployment-pipeline.md](./deployment-pipeline.md) | Numbered step-by-step flow of the GitHub Actions → Cloudflare deploy pipeline |
 
 Keep these in sync with the code when the architecture changes — see

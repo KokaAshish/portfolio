@@ -173,11 +173,14 @@ const pathname = Astro.url.pathname;
     color: var(--accent);
   }
 
-  /* Show the icon that matches the current theme */
-  [data-theme="light"] .icon-moon { display: none; }
-  [data-theme="light"] .icon-sun  { display: block; }
-  [data-theme="dark"]  .icon-sun  { display: none; }
-  [data-theme="dark"]  .icon-moon { display: block; }
+  /* Show only the icon matching the current theme — driven by the
+     button's own data-icon attribute (set in JS), not the <html>
+     data-theme attribute, so the selector never depends on crossing
+     out of this component's scoped styles. */
+  .nav__theme-btn .icon-sun,
+  .nav__theme-btn .icon-moon { display: none; }
+  .nav__theme-btn[data-icon="sun"]  .icon-sun  { display: block; }
+  .nav__theme-btn[data-icon="moon"] .icon-moon { display: block; }
 
   .nav__menu-btn {
     display: none;
@@ -232,12 +235,22 @@ const pathname = Astro.url.pathname;
 <script>
   // Theme toggle
   const themeBtn = document.getElementById('theme-toggle');
+
+  // The icon shown is the theme a click will switch TO — sun in dark
+  // mode (click for light), moon in light mode (click for dark).
+  function syncThemeIcon() {
+    const theme = document.documentElement.getAttribute('data-theme') || 'dark';
+    themeBtn?.setAttribute('data-icon', theme === 'dark' ? 'sun' : 'moon');
+  }
+  syncThemeIcon();
+
   themeBtn?.addEventListener('click', () => {
     const html = document.documentElement;
     const current = html.getAttribute('data-theme') || 'dark';
     const next = current === 'dark' ? 'light' : 'dark';
     html.setAttribute('data-theme', next);
     localStorage.setItem('theme', next);
+    syncThemeIcon();
   });
 
   // Mobile menu

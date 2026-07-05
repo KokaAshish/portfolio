@@ -41,9 +41,12 @@ id = "f4777bf7ce844d53b5b5d54891526b7e"
 ENVIRONMENT = "production"
 
 # Secrets (set via: npx wrangler secret put ADMIN_PASSWORD)
-# ADMIN_PASSWORD — password for /admin login
-# ADMIN_USERNAME — username for /admin login (defaults to "admin" if unset)
-# TO_EMAIL       — destination for contact form emails
+# ADMIN_PASSWORD    — password for /admin login
+# ADMIN_USERNAME    — username for /admin login (defaults to "admin" if unset)
+# TO_EMAIL          — destination for contact form emails
+# ANTHROPIC_API_KEY — used by /api/chat (portfolio chatbot). Get one at
+#                     https://console.anthropic.com/ — without it, the
+#                     chat widget returns a "not configured" error.
 #
 # ADMIN_SECRET is no longer used — sessions are now stored server-side in D1
 # (see migrations/0002_admin_sessions.sql) instead of signed stateless cookies.

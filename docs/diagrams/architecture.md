@@ -19,6 +19,7 @@ flowchart TB
         Login["/api/admin/login"]
         Logout["/api/admin/logout"]
         Submissions["/api/admin/submissions"]
+        Chat["/api/chat"]
     end
 
     subgraph Storage["4 · Cloudflare Storage"]
@@ -28,6 +29,7 @@ flowchart TB
 
     subgraph External["5 · External Services"]
         MailChannels["5a · MailChannels API\n(transactional email)"]
+        Anthropic["5b · Anthropic API\n(claude-haiku-4-5, chatbot)"]
     end
 
     subgraph CICD["6 · CI/CD"]
@@ -48,9 +50,12 @@ flowchart TB
     Logout -- "8. delete session row" --> D1
     Submissions -- "9. read sessions + submissions" --> D1
 
-    GHA -- "10. build + test" --> GHA
-    GHA -- "11. deploy via API" --> CFAPI
-    CFAPI -- "12. publish" --> Worker
+    Chat -- "10. per-IP counter" --> KV
+    Chat -- "11. grounded chat completion" --> Anthropic
+
+    GHA -- "12. build + test" --> GHA
+    GHA -- "13. deploy via API" --> CFAPI
+    CFAPI -- "14. publish" --> Worker
 
     style Client fill:#1e1e2e,color:#fff,stroke:#7c6af7
     style Edge fill:#16213e,color:#fff,stroke:#7c6af7
@@ -68,5 +73,6 @@ flowchart TB
 4. **D1** — single SQLite-compatible database with two tables: `contact_submissions` (public form data) and `admin_sessions` (server-side session store, added to make logout an actual revocation instead of a client-side cookie clear).
 5. **KV — RATE_LIMIT_KV** — app-layer rate-limit counters, keyed per IP per route. Persists across Worker cold starts, unlike an in-memory `Map`.
 6. **MailChannels** — outbound-only integration; contact form emails are sent here *after* the D1 write succeeds, so a submission is never lost even if email delivery fails.
-7. **GitHub Actions** — `ci.yml` runs on every PR + daily cron; `deploy.yml` runs on push to `main`, gated behind the same CI checks (`needs: ci`).
-8. **Cloudflare API** — the deploy job authenticates with `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID` (GitHub Secrets) and publishes via `cloudflare/wrangler-action`. See [deployment-pipeline.md](./deployment-pipeline.md).
+7. **Anthropic API** — powers `/api/chat`, grounded in [src/data/about-me.ts](../../src/data/about-me.ts). Input is pre-filtered for prompt-injection patterns before the call; the reply is scanned for leaked prompt/secret text before it's returned. See [sequence-chatbot.md](./sequence-chatbot.md).
+8. **GitHub Actions** — `ci.yml` runs on every PR + daily cron; `deploy.yml` runs on push to `main`, gated behind the same CI checks (`needs: ci`).
+9. **Cloudflare API** — the deploy job authenticates with `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID` (GitHub Secrets) and publishes via `cloudflare/wrangler-action`. See [deployment-pipeline.md](./deployment-pipeline.md).
